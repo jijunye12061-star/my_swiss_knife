@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金日内估值追踪</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface2: #1c2128;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #7d8590;
+            --accent: #58a6ff;
+            --accent2: #bc8cff;
+            --up: #3fb950;
+            --down: #f85149;
+            --up-bg: rgba(63, 185, 80, 0.1);
+            --down-bg: rgba(248, 81, 73, 0.1);
+            --radius: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 24px 20px;
+        }
+
+        .container { max-width: 1300px; margin: 0 auto; }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            align-items: baseline;
+            gap: 14px;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.02em;
+        }
+        .header p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* CONTROL PANEL */
+        .control-panel {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            margin-bottom: 24px;
+        }
+
+        .autocomplete-wrap {
+            position: relative;
+            flex: 0 0 340px;
+        }
+
+        .field-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .fund-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .fund-input:focus { border-color: var(--accent); }
+        .fund-input::placeholder { color: var(--text-muted); }
+
+        /* DROPDOWN */
+        .dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 100;
+            overflow: hidden;
+            display: none;
+        }
+        .dropdown.open { display: block; }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .dropdown-item:hover, .dropdown-item.active {
+            background: rgba(88, 166, 255, 0.08);
+        }
+        .dropdown-item .d-code {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
+            flex-shrink: 0;
+            width: 100px;
+        }
+        .dropdown-item .d-name {
+            font-size: 0.88rem;
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .dropdown-empty {
+            padding: 12px 14px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 10px 22px;
+            border: none;
+            border-radius: var(--radius);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #0d1117;
+        }
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn:hover:not(:disabled) { opacity: 0.85; }
+
+        /* ERROR */
+        .error-box {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            color: #f85149;
+            font-size: 0.88rem;
+            margin-bottom: 20px;
+        }
+
+        /* STAT CARDS */
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+        }
+
+        .stat-card .s-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .s-value {
+            font-family: 'DM Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .stat-card .s-value.up { color: var(--up); }
+        .stat-card .s-value.down { color: var(--down); }
+
+        /* CHART */
+        .chart-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        #chart { width: 100%; height: 420px; }
+
+        /* HOLDINGS TABLE */
+        .holdings-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            gap: 10px;
+        }
+        .panel-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+        .panel-badge {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-size: 0.78rem;
+            font-family: 'DM Mono', monospace;
+            color: var(--text-muted);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            padding: 10px 20px;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border);
+        }
+        thead th:not(:first-child) { text-align: right; }
+
+        tbody tr {
+            border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+            transition: background 0.15s;
+        }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+        tbody td {
+            padding: 12px 20px;
+            font-size: 0.9rem;
+        }
+        tbody td:not(:first-child) {
+            text-align: right;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .td-code {
+            color: var(--accent);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.88rem;
+            font-weight: 500;
+        }
+
+        .pct-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+        }
+        .pct-pill.up { background: var(--up-bg); color: var(--up); }
+        .pct-pill.down { background: var(--down-bg); color: var(--down); }
+        .pct-pill.flat { background: rgba(125,133,144,0.1); color: var(--text-muted); }
+
+        .ratio-bar-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .ratio-bar {
+            height: 4px;
+            background: var(--accent2);
+            border-radius: 2px;
+            opacity: 0.6;
+            transition: width 0.4s ease;
+        }
+
+        .hidden { display: none; }
+
+        @media (max-width: 900px) {
+            .stat-cards { grid-template-columns: repeat(3, 1fr); }
+            .control-panel { flex-wrap: wrap; }
+            .autocomplete-wrap { flex: 1 1 100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>基金日内估值追踪</h1>
+        <p>实时监控基金重仓股走势</p>
+    </div>
+
+    <!-- 查询栏 -->
+    <div class="control-panel">
+        <div class="autocomplete-wrap">
+            <label class="field-label" for="fundCode">基金代码 / 简称</label>
+            <input type="text" id="fundCode" class="fund-input" placeholder="输入代码或简称搜索，如 000001" autocomplete="off">
+            <div class="dropdown" id="dropdown"></div>
+        </div>
+        <button class="btn btn-primary" onclick="loadData()" id="loadBtn">查询</button>
+        <button class="btn btn-secondary hidden" onclick="refreshData()" id="refreshBtn">↻ 刷新</button>
+    </div>
+
+    <div id="errorBox" class="error-box hidden"></div>
+
+    <!-- 统计卡片 -->
+    <div id="statCards" class="stat-cards hidden"></div>
+
+    <!-- 走势图 -->
+    <div id="chartPanel" class="chart-panel hidden">
+        <div id="chart"></div>
+    </div>
+
+    <!-- 重仓股表格 -->
+    <div id="holdingsPanel" class="holdings-panel hidden">
+        <div class="panel-header">
+            <span class="panel-title">重仓股明细</span>
+            <span class="panel-badge" id="holdingsBadge"></span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>股票代码</th>
+                    <th>昨收价</th>
+                    <th>最新价</th>
+                    <th>涨跌幅</th>
+                    <th>持仓占比</th>
+                </tr>
+            </thead>
+            <tbody id="holdingsBody"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    let chart = null;
+    let currentFundCode = '';
+    let dropdownActive = -1;
+    let searchTimer = null;
+
+    // ─── 搜索下拉 ────────────────────────────────────────────
+    const input = document.getElementById('fundCode');
+    const dropdown = document.getElementById('dropdown');
+
+    input.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const q = input.value.trim();
+        if (!q) { closeDropdown(); return; }
+        searchTimer = setTimeout(() => fetchSuggestions(q), 200);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        const items = dropdown.querySelectorAll('.dropdown-item');
+        if (!items.length) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            dropdownActive = Math.min(dropdownActive + 1, items.length - 1);
+            updateActive(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            dropdownActive = Math.max(dropdownActive - 1, 0);
+            updateActive(items);
+        } else if (e.key === 'Enter') {
+            if (dropdownActive >= 0 && items[dropdownActive]) {
+                items[dropdownActive].click();
+            } else {
+                loadData();
+            }
+        } else if (e.key === 'Escape') {
+            closeDropdown();
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.autocomplete-wrap')) closeDropdown();
+    });
+
+    async function fetchSuggestions(q) {
+        try {
+            const res = await fetch(`/api/fund_search?q=${encodeURIComponent(q)}`);
+            const list = await res.json();
+            renderDropdown(list);
+        } catch { closeDropdown(); }
+    }
+
+    function renderDropdown(list) {
+        dropdownActive = -1;
+        if (!list.length) {
+            dropdown.innerHTML = `<div class="dropdown-empty">未找到匹配基金</div>`;
+        } else {
+            dropdown.innerHTML = list.map(f => `
+                <div class="dropdown-item" data-code="${f.code}">
+                    <span class="d-code">${f.code}</span>
+                    <span class="d-name">${f.name}</span>
+                </div>`).join('');
+            dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    input.value = item.dataset.code;
+                    closeDropdown();
+                    loadData();
+                });
+            });
+        }
+        dropdown.classList.add('open');
+    }
+
+    function updateActive(items) {
+        items.forEach((el, i) => el.classList.toggle('active', i === dropdownActive));
+    }
+
+    function closeDropdown() {
+        dropdown.classList.remove('open');
+        dropdownActive = -1;
+    }
+
+    // ─── 工具函数 ─────────────────────────────────────────────
+    function showError(msg) {
+        const box = document.getElementById('errorBox');
+        box.textContent = msg;
+        box.classList.remove('hidden');
+    }
+    function hideError() { document.getElementById('errorBox').classList.add('hidden'); }
+
+    function fmtPct(v, showSign = true) {
+        if (v === null || v === undefined) return '—';
+        const sign = showSign && v >= 0 ? '+' : '';
+        return sign + v.toFixed(2) + '%';
+    }
+    function fmtPrice(v) {
+        if (v === null || v === undefined) return '—';
+        return v.toFixed(3);
+    }
+
+    // ─── 渲染统计卡片 ─────────────────────────────────────────
+    function renderStatCards(data) {
+        const s = data.stats;
+        const cur = s.current || 0;
+        const mx = s.max || 0;
+        const mn = s.min || 0;
+
+        const cards = [
+            { label: '当前估值涨跌', value: fmtPct(cur), cls: cur >= 0 ? 'up' : 'down' },
+            { label: '日内最高', value: fmtPct(mx), cls: 'up' },
+            { label: '日内最低', value: fmtPct(mn), cls: 'down' },
+            { label: '股票仓位', value: data.stock_position + '%', cls: '' },
+            { label: '重仓股数量', value: data.holdings_count + ' 只', cls: '' },
+        ];
+
+        const el = document.getElementById('statCards');
+        el.innerHTML = cards.map(c => `
+            <div class="stat-card">
+                <div class="s-label">${c.label}</div>
+                <div class="s-value ${c.cls}">${c.value}</div>
+            </div>`).join('');
+        el.classList.remove('hidden');
+    }
+
+    // ─── 渲染走势图 ───────────────────────────────────────────
+    function renderChart(data) {
+        document.getElementById('chartPanel').classList.remove('hidden');
+        if (!chart) chart = echarts.init(document.getElementById('chart'));
+
+        const times = data.valuation_data.map(d => d.time.split(' ')[1]);
+        const values = data.valuation_data.map(d => d.valuation_change);
+        const isPositive = values[values.length - 1] >= 0;
+        const lineColor = isPositive ? '#3fb950' : '#f85149';
+        const areaColor = isPositive ? 'rgba(63,185,80,' : 'rgba(248,81,73,';
+
+        const option = {
+            backgroundColor: 'transparent',
+            title: {
+                text: data.fund_code,
+                subtext: '日内估值走势',
+                left: 16,
+                top: 10,
+                textStyle: { color: '#e6edf3', fontSize: 15, fontWeight: 700, fontFamily: 'DM Mono, monospace' },
+                subtextStyle: { color: '#7d8590', fontSize: 12 }
+            },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: '#1c2128',
+                borderColor: '#30363d',
+                textStyle: { color: '#e6edf3', fontFamily: 'DM Mono, monospace', fontSize: 13 },
+                formatter(params) {
+                    const v = params[0].value;
+                    return `${params[0].axisValue}&nbsp;&nbsp;<b style="color:${v>=0?'#3fb950':'#f85149'}">${fmtPct(v)}</b>`;
+                }
+            },
+            grid: { left: 60, right: 30, top: 80, bottom: 50 },
+            xAxis: {
+                type: 'category',
+                data: times,
+                boundaryGap: false,
+                axisLine: { lineStyle: { color: '#30363d' } },
+                axisTick: { show: false },
+                axisLabel: {
+                    color: '#7d8590',
+                    fontSize: 11,
+                    fontFamily: 'DM Mono, monospace',
+                    interval: 'auto',
+                    rotate: 30
+                }
+            },
+            yAxis: {
+                type: 'value',
+                axisLabel: {
+                    formatter: v => v.toFixed(2) + '%',
+                    color: '#7d8590',
+                    fontSize: 11,
+                    fontFamily: 'DM Mono, monospace'
+                },
+                splitLine: { lineStyle: { color: '#21262d', type: 'dashed' } },
+                axisLine: { show: false },
+                axisTick: { show: false }
+            },
+            series: [{
+                type: 'line',
+                data: values,
+                smooth: 0.3,
+                lineStyle: { width: 2, color: lineColor },
+                itemStyle: { color: lineColor },
+                symbol: 'none',
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: areaColor + '0.25)' },
+                        { offset: 1, color: areaColor + '0.02)' }
+                    ])
+                },
+                markLine: {
+                    silent: true,
+                    symbol: 'none',
+                    lineStyle: { color: '#30363d', type: 'dashed', width: 1 },
+                    data: [{ yAxis: 0 }],
+                    label: { show: false }
+                }
+            }]
+        };
+
+        chart.setOption(option, true);
+    }
+
+    // ─── 渲染持仓表格 ─────────────────────────────────────────
+    function renderHoldings(holdings) {
+        const maxRatio = Math.max(...holdings.map(h => h.ratio));
+
+        const tbody = document.getElementById('holdingsBody');
+        tbody.innerHTML = holdings.map(h => {
+            const barW = maxRatio > 0 ? Math.round((h.ratio / maxRatio) * 80) : 0;
+            let pillClass = 'flat', pillText = '—';
+            if (h.change_pct !== null) {
+                pillClass = h.change_pct > 0 ? 'up' : h.change_pct < 0 ? 'down' : 'flat';
+                pillText = fmtPct(h.change_pct);
+            }
+
+            return `<tr>
+                <td class="td-code">${h.code}</td>
+                <td>${fmtPrice(h.prev_close)}</td>
+                <td>${fmtPrice(h.latest_price)}</td>
+                <td><span class="pct-pill ${pillClass}">${pillText}</span></td>
+                <td>
+                    <div class="ratio-bar-wrap">
+                        <div class="ratio-bar" style="width:${barW}px"></div>
+                        <span>${h.ratio.toFixed(2)}%</span>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+        document.getElementById('holdingsBadge').textContent = holdings.length + ' 只';
+        document.getElementById('holdingsPanel').classList.remove('hidden');
+    }
+
+    // ─── 主流程 ───────────────────────────────────────────────
+    async function loadData() {
+        const fundCode = input.value.trim();
+        if (!fundCode) { showError('请输入基金代码'); return; }
+
+        hideError();
+        closeDropdown();
+        currentFundCode = fundCode;
+
+        const loadBtn = document.getElementById('loadBtn');
+        loadBtn.disabled = true;
+        loadBtn.textContent = '加载中…';
+
+        try {
+            const res = await fetch('/api/valuation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fund_code: fundCode })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '请求失败');
+
+            renderStatCards(data);
+            renderChart(data);
+            renderHoldings(data.holdings);
+            document.getElementById('refreshBtn').classList.remove('hidden');
+        } catch (e) {
+            showError(e.message);
+        } finally {
+            loadBtn.disabled = false;
+            loadBtn.textContent = '查询';
+        }
+    }
+
+    function refreshData() {
+        if (currentFundCode) {
+            input.value = currentFundCode;
+            loadData();
+        }
+    }
+
+    window.addEventListener('resize', () => { if (chart) chart.resize(); });
+</script>
+</body>
+</html>
