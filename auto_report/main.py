@@ -1,28 +1,20 @@
 """
 主入口：生成基金申赎月度报告
   1. 生成汇总表 + 趋势图
-  2. 插入AI摘要（可选）
+  2. 插入AI摘要（LLM生成）
   3. 添加水印 + 工作表保护
 """
 
 from report_generator import generate_monthly_report
 from watermark import apply_watermark_and_protection
+from llm_summary import build_llm_summary_generator
 
 
-# ── 示例：硬编码摘要（后续替换为LLM调用）──────────────
+# ── 示例：硬编码摘要（保留作为兜底/调试用）─────────────
 
 def example_summary_generator(df_summary):
     """
-    示例摘要生成器 - 演示接口格式。
-    实际使用时替换为LLM调用，例如：
-
-        def llm_summary_generator(df_summary):
-            prompt = build_prompt(df_summary)
-            response = call_llm(prompt)
-            return {
-                'overall': response['overall'],
-                'institutions': response['institutions'],
-            }
+    示例摘要生成器 - 硬编码数据，用于调试排版或LLM不可用时的兜底。
     """
     overall = (
         "1、一月份保险资金在平台净申购量最大（69.99），其次为券商（59.80）、公募（19.97）；\n"
@@ -82,54 +74,6 @@ def example_summary_generator(df_summary):
     }
 
 
-# ── LLM摘要生成器模板 ────────────────────────────────
-
-def llm_summary_generator(df_summary):
-    """
-    LLM摘要生成器模板 - 将df传给大模型，返回结构化摘要。
-
-    使用方式：
-        1. 实现 call_llm() 函数（调用API）
-        2. 在 main() 中将 summary_generator 替换为此函数
-
-    def call_llm(prompt):
-        # 调用你的LLM API
-        import openai  # 或其他SDK
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.choices[0].message.content
-    """
-    # 构建prompt
-    summary_text = df_summary.to_string(index=False)
-    prompt = f"""请基于以下基金申赎月度汇总数据，生成分析摘要。
-
-数据如下：
-{summary_text}
-
-请按以下JSON格式输出：
-{{
-    "overall": "整体情况分析，每条以序号开头，用换行符分隔",
-    "institutions": {{
-        "机构名称": "该机构的行为分析，每条以序号开头，用换行符分隔",
-        ...
-    }}
-}}
-
-要求：
-1. overall部分3-5条，概括全市场趋势
-2. institutions部分覆盖所有机构，每个2-4条
-3. 数字保留两位小数，用括号标注
-4. 语言简练专业
-"""
-    # response = call_llm(prompt)
-    # return json.loads(response)
-
-    # 暂时返回None，表示未实现
-    return None
-
-
 # ── 主流程 ────────────────────────────────────────────
 
 def main():
@@ -140,9 +84,20 @@ def main():
     WATERMARK_TEXT = '平安基金MOM专用'
     PROTECTION_PASSWORD = None  # 设为字符串即启用密码保护，如 'abc123'
 
+    # 是否使用LLM生成摘要（False则使用硬编码示例）
+    USE_LLM_SUMMARY = True
+
     # 中间文件和最终文件
     report_file = r'./data/2026年1月基金申赎报告.xlsx'
     final_file = r'./data/2026年1月基金申赎报告-终版.xlsx'
+
+    # 选择摘要生成器
+    if USE_LLM_SUMMARY:
+        summary_gen = build_llm_summary_generator()
+        print('📝 使用LLM生成摘要')
+    else:
+        summary_gen = example_summary_generator
+        print('📝 使用硬编码示例摘要')
 
     # Step 1: 生成报告（含汇总表 + 摘要 + 趋势图）
     generate_monthly_report(
@@ -151,7 +106,7 @@ def main():
         start_date=START_DATE,
         end_date=END_DATE,
         add_trend_charts=True,
-        summary_generator=example_summary_generator,  # 替换为 llm_summary_generator
+        summary_generator=summary_gen,
     )
 
     # Step 2: 添加水印 + 保护
