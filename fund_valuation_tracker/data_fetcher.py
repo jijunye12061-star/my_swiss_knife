@@ -48,7 +48,7 @@ class FundDataFetcher:
         """
         # 解析股票代码
         code, exchange = stock_code.split('.')
-        market = '0' if exchange == 'SZ' else '1'
+        market = '0' if exchange == 'SZ' else '1' if exchange == 'SH' else '116'
         secid = f"{market}.{code}"
 
         params = {

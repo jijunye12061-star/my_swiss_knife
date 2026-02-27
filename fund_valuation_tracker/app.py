@@ -3,6 +3,7 @@
 """
 import sys
 import json
+import threading
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -14,25 +15,48 @@ import traceback
 app = Flask(__name__)
 fetcher = FundDataFetcher()
 
-# 基金列表缓存
+# ─── 基金列表缓存 ─────────────────────────────────────────────
+_cache_lock = threading.Lock()
 _fund_list_cache = None
+_fund_code_to_init = {}
+
 
 def load_fund_list():
-    """加载基金列表，带缓存"""
-    global _fund_list_cache
-    if _fund_list_cache is None:
+    """加载基金列表，带线程安全缓存；同时构建 code→init_code 映射"""
+    global _fund_list_cache, _fund_code_to_init
+    if _fund_list_cache is not None:
+        return _fund_list_cache
+    with _cache_lock:
+        if _fund_list_cache is not None:  # double-check
+            return _fund_list_cache
         fund_list_path = Path(__file__).parent / 'static' / 'fund_list.json'
+        data = []
         if fund_list_path.exists():
             with open(fund_list_path, 'r', encoding='utf-8') as f:
-                _fund_list_cache = json.load(f)
-        else:
-            _fund_list_cache = []
+                data = json.load(f)
+        _fund_code_to_init = {
+            fund['code']: fund.get('init_code', fund['code'])
+            for fund in data
+        }
+        _fund_list_cache = data
     return _fund_list_cache
 
 
+def resolve_init_code(fund_code: str) -> str:
+    """
+    给定基金代码（可能是非主基金），返回对应的主基金代码(init_code)。
+    若在列表中找不到，尝试补全 .OF 后缀再查，最终兜底返回原代码（带后缀）。
+    """
+    load_fund_list()
+    if fund_code in _fund_code_to_init:
+        return _fund_code_to_init[fund_code]
+    candidate = fund_code if '.' in fund_code else fund_code + '.OF'
+    return _fund_code_to_init.get(candidate, candidate)
+
+
+# ─── 路由 ─────────────────────────────────────────────────────
 @app.route('/')
 def index():
-    """主页"""
     return render_template('index.html')
 
 
@@ -52,7 +76,7 @@ def fund_search():
         name = fund.get('name', '')
         if query_lower in code.lower() or query_lower in name.lower():
             results.append({'code': code, 'name': name})
-        if len(results) >= 10:  # 最多返回10条
+        if len(results) >= 10:
             break
 
     return jsonify(results)
@@ -68,17 +92,22 @@ def get_valuation():
         if not fund_code:
             return jsonify({'error': '请输入基金代码'}), 400
 
-        # 1. 获取基金持仓（使用最新报告期）
+        # ── 解析 init_code，持仓/仓位查询统一用主基金代码 ──
+        init_code = resolve_init_code(fund_code)
+        if init_code != fund_code:
+            print(f"[init_code] {fund_code} → {init_code}")
+
+        # 1. 获取基金持仓
         report_date = "2025-12-31"
-        holdings = fetcher.get_fund_holdings(fund_code, report_date)
+        holdings = fetcher.get_fund_holdings(init_code, report_date)
 
         if holdings.empty:
-            return jsonify({'error': f'未找到基金 {fund_code} 的持仓数据'}), 404
+            return jsonify({'error': f'未找到基金 {fund_code}（主基金 {init_code}）的持仓数据'}), 404
 
         # 2. 获取股票仓位
-        stock_position = fetcher.get_stock_position_ratio(fund_code, report_date)
+        stock_position = fetcher.get_stock_position_ratio(init_code, report_date)
 
-        # 3. 获取股票代码
+        # 3. 获取股票代码列表
         stock_codes = holdings['股票代码'].unique().tolist()
 
         # 4. 获取昨收价
@@ -100,45 +129,43 @@ def get_valuation():
         holdings_detail = []
         for _, row in holdings.iterrows():
             code = row['股票代码']
+            name = row['股票名称']
             ratio = row['持仓占比']
             prev_close = prev_close_dict.get(code)
 
-            # 取日内最新价（最后一根K线）
             klines = intraday_klines.get(code, [])
             latest_price = klines[-1]['price'] if klines else prev_close
 
-            # 计算涨跌幅
+            change_pct = None
             if prev_close and prev_close > 0 and latest_price:
                 change_pct = (latest_price - prev_close) / prev_close * 100
-            else:
-                change_pct = None
 
             holdings_detail.append({
                 'code': code,
+                'name': name,
                 'ratio': round(ratio, 4),
                 'prev_close': round(prev_close, 3) if prev_close else None,
                 'latest_price': round(latest_price, 3) if latest_price else None,
                 'change_pct': round(change_pct, 2) if change_pct is not None else None,
             })
 
-        # 按持仓占比降序排列
         holdings_detail.sort(key=lambda x: x['ratio'], reverse=True)
 
         return jsonify({
             'success': True,
             'fund_code': fund_code,
+            'init_code': init_code,
             'report_date': report_date,
             'stock_position': round(stock_position, 2),
             'holdings_count': len(stock_codes),
             'valuation_data': valuation_data,
             'stats': stats,
-            'holdings': holdings_detail,       # 新版，含价格信息
+            'holdings': holdings_detail,
         })
 
     except Exception as e:
-        error_msg = str(e)
         traceback.print_exc()
-        return jsonify({'error': f'数据获取失败: {error_msg}'}), 500
+        return jsonify({'error': f'数据获取失败: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

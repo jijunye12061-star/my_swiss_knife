@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>基金日内估值追踪</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap"
+          rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         :root {
@@ -16,14 +17,18 @@
             --text-muted: #7d8590;
             --accent: #58a6ff;
             --accent2: #bc8cff;
-            --up: #3fb950;
-            --down: #f85149;
-            --up-bg: rgba(63, 185, 80, 0.1);
-            --down-bg: rgba(248, 81, 73, 0.1);
+            --up: #f85149;
+            --down: #3fb950;
+            --up-bg: rgba(248, 81, 73, 0.1);
+            --down-bg: rgba(63, 185, 80, 0.1);
             --radius: 8px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'DM Sans', sans-serif;
@@ -33,7 +38,10 @@
             padding: 24px 20px;
         }
 
-        .container { max-width: 1300px; margin: 0 auto; }
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
 
         /* HEADER */
         .header {
@@ -44,12 +52,14 @@
             padding-bottom: 20px;
             border-bottom: 1px solid var(--border);
         }
+
         .header h1 {
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--text);
             letter-spacing: -0.02em;
         }
+
         .header p {
             font-size: 0.85rem;
             color: var(--text-muted);
@@ -90,8 +100,14 @@
             outline: none;
             transition: border-color 0.2s;
         }
-        .fund-input:focus { border-color: var(--accent); }
-        .fund-input::placeholder { color: var(--text-muted); }
+
+        .fund-input:focus {
+            border-color: var(--accent);
+        }
+
+        .fund-input::placeholder {
+            color: var(--text-muted);
+        }
 
         /* DROPDOWN */
         .dropdown {
@@ -102,12 +118,15 @@
             background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
             z-index: 100;
             overflow: hidden;
             display: none;
         }
-        .dropdown.open { display: block; }
+
+        .dropdown.open {
+            display: block;
+        }
 
         .dropdown-item {
             display: flex;
@@ -117,9 +136,11 @@
             cursor: pointer;
             transition: background 0.15s;
         }
+
         .dropdown-item:hover, .dropdown-item.active {
             background: rgba(88, 166, 255, 0.08);
         }
+
         .dropdown-item .d-code {
             font-family: 'DM Mono', monospace;
             font-size: 0.85rem;
@@ -127,6 +148,7 @@
             flex-shrink: 0;
             width: 100px;
         }
+
         .dropdown-item .d-name {
             font-size: 0.88rem;
             color: var(--text);
@@ -134,6 +156,7 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
         .dropdown-empty {
             padding: 12px 14px;
             font-size: 0.85rem;
@@ -151,19 +174,30 @@
             cursor: pointer;
             transition: opacity 0.2s, transform 0.1s;
         }
-        .btn:active { transform: scale(0.97); }
-        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
 
         .btn-primary {
             background: var(--accent);
             color: #0d1117;
         }
+
         .btn-secondary {
             background: var(--surface);
             color: var(--text);
             border: 1px solid var(--border);
         }
-        .btn:hover:not(:disabled) { opacity: 0.85; }
+
+        .btn:hover:not(:disabled) {
+            opacity: 0.85;
+        }
 
         /* ERROR */
         .error-box {
@@ -205,8 +239,14 @@
             font-weight: 500;
             color: var(--text);
         }
-        .stat-card .s-value.up { color: var(--up); }
-        .stat-card .s-value.down { color: var(--down); }
+
+        .stat-card .s-value.up {
+            color: var(--up);
+        }
+
+        .stat-card .s-value.down {
+            color: var(--down);
+        }
 
         /* CHART */
         .chart-panel {
@@ -217,7 +257,10 @@
             margin-bottom: 20px;
         }
 
-        #chart { width: 100%; height: 420px; }
+        #chart {
+            width: 100%;
+            height: 420px;
+        }
 
         /* HOLDINGS TABLE */
         .holdings-panel {
@@ -234,6 +277,7 @@
             border-bottom: 1px solid var(--border);
             gap: 10px;
         }
+
         .panel-title {
             font-size: 0.88rem;
             font-weight: 700;
@@ -241,6 +285,7 @@
             letter-spacing: 0.08em;
             color: var(--text-muted);
         }
+
         .panel-badge {
             background: var(--surface2);
             border: 1px solid var(--border);
@@ -267,19 +312,29 @@
             background: var(--surface2);
             border-bottom: 1px solid var(--border);
         }
-        thead th:not(:first-child) { text-align: right; }
+
+        thead th:not(:first-child) {
+            text-align: right;
+        }
 
         tbody tr {
             border-bottom: 1px solid rgba(48, 54, 61, 0.5);
             transition: background 0.15s;
         }
-        tbody tr:last-child { border-bottom: none; }
-        tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
 
         tbody td {
             padding: 12px 20px;
             font-size: 0.9rem;
         }
+
         tbody td:not(:first-child) {
             text-align: right;
             font-family: 'DM Mono', monospace;
@@ -298,9 +353,21 @@
             border-radius: 4px;
             font-size: 0.82rem;
         }
-        .pct-pill.up { background: var(--up-bg); color: var(--up); }
-        .pct-pill.down { background: var(--down-bg); color: var(--down); }
-        .pct-pill.flat { background: rgba(125,133,144,0.1); color: var(--text-muted); }
+
+        .pct-pill.up {
+            background: var(--up-bg);
+            color: var(--up);
+        }
+
+        .pct-pill.down {
+            background: var(--down-bg);
+            color: var(--down);
+        }
+
+        .pct-pill.flat {
+            background: rgba(125, 133, 144, 0.1);
+            color: var(--text-muted);
+        }
 
         .ratio-bar-wrap {
             display: flex;
@@ -308,6 +375,7 @@
             justify-content: flex-end;
             gap: 8px;
         }
+
         .ratio-bar {
             height: 4px;
             background: var(--accent2);
@@ -316,12 +384,22 @@
             transition: width 0.4s ease;
         }
 
-        .hidden { display: none; }
+        .hidden {
+            display: none;
+        }
 
         @media (max-width: 900px) {
-            .stat-cards { grid-template-columns: repeat(3, 1fr); }
-            .control-panel { flex-wrap: wrap; }
-            .autocomplete-wrap { flex: 1 1 100%; }
+            .stat-cards {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .control-panel {
+                flex-wrap: wrap;
+            }
+
+            .autocomplete-wrap {
+                flex: 1 1 100%;
+            }
         }
     </style>
 </head>
@@ -337,7 +415,8 @@
     <div class="control-panel">
         <div class="autocomplete-wrap">
             <label class="field-label" for="fundCode">基金代码 / 简称</label>
-            <input type="text" id="fundCode" class="fund-input" placeholder="输入代码或简称搜索，如 000001" autocomplete="off">
+            <input type="text" id="fundCode" class="fund-input" placeholder="输入代码或简称搜索，如 000001"
+                   autocomplete="off">
             <div class="dropdown" id="dropdown"></div>
         </div>
         <button class="btn btn-primary" onclick="loadData()" id="loadBtn">查询</button>
@@ -362,13 +441,14 @@
         </div>
         <table>
             <thead>
-                <tr>
-                    <th>股票代码</th>
-                    <th>昨收价</th>
-                    <th>最新价</th>
-                    <th>涨跌幅</th>
-                    <th>持仓占比</th>
-                </tr>
+            <tr>
+                <th>股票代码</th>
+                <th>股票名称</th>
+                <th>昨收价</th>
+                <th>最新价</th>
+                <th>涨跌幅</th>
+                <th>持仓占比</th>
+            </tr>
             </thead>
             <tbody id="holdingsBody"></tbody>
         </table>
@@ -389,7 +469,10 @@
     input.addEventListener('input', () => {
         clearTimeout(searchTimer);
         const q = input.value.trim();
-        if (!q) { closeDropdown(); return; }
+        if (!q) {
+            closeDropdown();
+            return;
+        }
         searchTimer = setTimeout(() => fetchSuggestions(q), 200);
     });
 
@@ -425,7 +508,9 @@
             const res = await fetch(`/api/fund_search?q=${encodeURIComponent(q)}`);
             const list = await res.json();
             renderDropdown(list);
-        } catch { closeDropdown(); }
+        } catch {
+            closeDropdown();
+        }
     }
 
     function renderDropdown(list) {
@@ -464,13 +549,17 @@
         box.textContent = msg;
         box.classList.remove('hidden');
     }
-    function hideError() { document.getElementById('errorBox').classList.add('hidden'); }
+
+    function hideError() {
+        document.getElementById('errorBox').classList.add('hidden');
+    }
 
     function fmtPct(v, showSign = true) {
         if (v === null || v === undefined) return '—';
         const sign = showSign && v >= 0 ? '+' : '';
         return sign + v.toFixed(2) + '%';
     }
+
     function fmtPrice(v) {
         if (v === null || v === undefined) return '—';
         return v.toFixed(3);
@@ -484,11 +573,11 @@
         const mn = s.min || 0;
 
         const cards = [
-            { label: '当前估值涨跌', value: fmtPct(cur), cls: cur >= 0 ? 'up' : 'down' },
-            { label: '日内最高', value: fmtPct(mx), cls: 'up' },
-            { label: '日内最低', value: fmtPct(mn), cls: 'down' },
-            { label: '股票仓位', value: data.stock_position + '%', cls: '' },
-            { label: '重仓股数量', value: data.holdings_count + ' 只', cls: '' },
+            {label: '当前估值涨跌', value: fmtPct(cur), cls: cur >= 0 ? 'up' : 'down'},
+            {label: '日内最高', value: fmtPct(mx), cls: 'up'},
+            {label: '日内最低', value: fmtPct(mn), cls: 'down'},
+            {label: '股票仓位', value: data.stock_position + '%', cls: ''},
+            {label: '重仓股数量', value: data.holdings_count + ' 只', cls: ''},
         ];
 
         const el = document.getElementById('statCards');
@@ -508,8 +597,8 @@
         const times = data.valuation_data.map(d => d.time.split(' ')[1]);
         const values = data.valuation_data.map(d => d.valuation_change);
         const isPositive = values[values.length - 1] >= 0;
-        const lineColor = isPositive ? '#3fb950' : '#f85149';
-        const areaColor = isPositive ? 'rgba(63,185,80,' : 'rgba(248,81,73,';
+        const lineColor = isPositive ? '#f85149' : '#3fb950';
+        const areaColor = isPositive ? 'rgba(248,81,73,' : 'rgba(63,185,80,';
 
         const option = {
             backgroundColor: 'transparent',
@@ -518,26 +607,26 @@
                 subtext: '日内估值走势',
                 left: 16,
                 top: 10,
-                textStyle: { color: '#e6edf3', fontSize: 15, fontWeight: 700, fontFamily: 'DM Mono, monospace' },
-                subtextStyle: { color: '#7d8590', fontSize: 12 }
+                textStyle: {color: '#e6edf3', fontSize: 15, fontWeight: 700, fontFamily: 'DM Mono, monospace'},
+                subtextStyle: {color: '#7d8590', fontSize: 12}
             },
             tooltip: {
                 trigger: 'axis',
                 backgroundColor: '#1c2128',
                 borderColor: '#30363d',
-                textStyle: { color: '#e6edf3', fontFamily: 'DM Mono, monospace', fontSize: 13 },
+                textStyle: {color: '#e6edf3', fontFamily: 'DM Mono, monospace', fontSize: 13},
                 formatter(params) {
                     const v = params[0].value;
-                    return `${params[0].axisValue}&nbsp;&nbsp;<b style="color:${v>=0?'#3fb950':'#f85149'}">${fmtPct(v)}</b>`;
+                    return `${params[0].axisValue}&nbsp;&nbsp;<b style="color:${v >= 0 ? '#f85149' : '#3fb950'}">${fmtPct(v)}</b>`;
                 }
             },
-            grid: { left: 60, right: 30, top: 80, bottom: 50 },
+            grid: {left: 60, right: 30, top: 80, bottom: 50},
             xAxis: {
                 type: 'category',
                 data: times,
                 boundaryGap: false,
-                axisLine: { lineStyle: { color: '#30363d' } },
-                axisTick: { show: false },
+                axisLine: {lineStyle: {color: '#30363d'}},
+                axisTick: {show: false},
                 axisLabel: {
                     color: '#7d8590',
                     fontSize: 11,
@@ -554,29 +643,29 @@
                     fontSize: 11,
                     fontFamily: 'DM Mono, monospace'
                 },
-                splitLine: { lineStyle: { color: '#21262d', type: 'dashed' } },
-                axisLine: { show: false },
-                axisTick: { show: false }
+                splitLine: {lineStyle: {color: '#21262d', type: 'dashed'}},
+                axisLine: {show: false},
+                axisTick: {show: false}
             },
             series: [{
                 type: 'line',
                 data: values,
                 smooth: 0.3,
-                lineStyle: { width: 2, color: lineColor },
-                itemStyle: { color: lineColor },
+                lineStyle: {width: 2, color: lineColor},
+                itemStyle: {color: lineColor},
                 symbol: 'none',
                 areaStyle: {
                     color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: areaColor + '0.25)' },
-                        { offset: 1, color: areaColor + '0.02)' }
+                        {offset: 0, color: areaColor + '0.25)'},
+                        {offset: 1, color: areaColor + '0.02)'}
                     ])
                 },
                 markLine: {
                     silent: true,
                     symbol: 'none',
-                    lineStyle: { color: '#30363d', type: 'dashed', width: 1 },
-                    data: [{ yAxis: 0 }],
-                    label: { show: false }
+                    lineStyle: {color: '#30363d', type: 'dashed', width: 1},
+                    data: [{yAxis: 0}],
+                    label: {show: false}
                 }
             }]
         };
@@ -599,6 +688,7 @@
 
             return `<tr>
                 <td class="td-code">${h.code}</td>
+                <td>${h.name ?? '—'}</td>       <!-- 新增 -->
                 <td>${fmtPrice(h.prev_close)}</td>
                 <td>${fmtPrice(h.latest_price)}</td>
                 <td><span class="pct-pill ${pillClass}">${pillText}</span></td>
@@ -618,7 +708,10 @@
     // ─── 主流程 ───────────────────────────────────────────────
     async function loadData() {
         const fundCode = input.value.trim();
-        if (!fundCode) { showError('请输入基金代码'); return; }
+        if (!fundCode) {
+            showError('请输入基金代码');
+            return;
+        }
 
         hideError();
         closeDropdown();
@@ -631,8 +724,8 @@
         try {
             const res = await fetch('/api/valuation', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fund_code: fundCode })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({fund_code: fundCode})
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || '请求失败');
@@ -656,7 +749,9 @@
         }
     }
 
-    window.addEventListener('resize', () => { if (chart) chart.resize(); });
+    window.addEventListener('resize', () => {
+        if (chart) chart.resize();
+    });
 </script>
 </body>
 </html>

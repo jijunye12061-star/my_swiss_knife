@@ -327,6 +327,7 @@ class ChoiceDataUtils:
             'FUNDCODE': '基金代码',
             'REPORTDATE': '报告日期',
             'SECUCODE': '股票代码',
+            'SECUNAME': '股票名称',
             'NETASSETRATIO': '持仓占比'
         }
         if report_date[-5:] in ['12-31', '06-30']:
@@ -336,7 +337,7 @@ class ChoiceDataUtils:
         else:
             raise ValueError("报告期日期错误")
         query_dict = {'codes': codes_info,
-                      'indicators': "FUNDCODE,REPORTDATE,SECUCODE,NETASSETRATIO"}
+                      'indicators': "FUNDCODE,REPORTDATE,SECUCODE,SECUNAME,NETASSETRATIO"}
         # 预定义查询参数，避免重复创建
         base_options = f"ReportDate={report_date},isPandas=1"
         stock_holdings_list = []
@@ -345,7 +346,7 @@ class ChoiceDataUtils:
             query_dict['options'] = f"FundCode={fund_code},{base_options}"
             df = fetcher.query_from_choice('ctr', query_dict)
             if not isinstance(df, pd.DataFrame):
-                df = pd.DataFrame(columns=['FUNDCODE', 'REPORTDATE', 'SECUCODE', 'NETASSETRATIO'])
+                df = pd.DataFrame(columns=['FUNDCODE', 'REPORTDATE', 'SECUCODE', 'SECUNAME', 'NETASSETRATIO'])
 
             # 链式处理，减少中间DataFrame
             stock_holdings = (df.rename(columns=columns_map)
