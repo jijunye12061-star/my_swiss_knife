@@ -1,105 +1,105 @@
-"""
-主入口：生成基金申赎月度报告
-  1. 生成汇总表 + 趋势图
-  2. 插入AI摘要（LLM生成）
-  3. 添加水印 + 工作表保护
-"""
+import sys
+from pathlib import Path
+
+sys_path = Path("dolphinscheduler/default/resources/jjy/clients/sub_redeem_report")
+sys.path.insert(0, str(sys_path))
+
+import os
+import calendar
+from datetime import datetime
+
+import pymysql
+import pandas as pd
 
 from report_generator import generate_monthly_report
 from watermark import apply_watermark_and_protection
 from llm_summary import build_llm_summary_generator
 
+# ========== Doris连接信息 ==========
+DORIS_CONFIG = {
+    'host': '10.189.18.47',
+    'port': 10096,
+    'user': 'irdev',
+    'password': 'oCrxPb0osif31%TGB',
+    'database': 'tytdata',
+}
 
-# ── 示例：硬编码摘要（保留作为兜底/调试用）─────────────
 
-def example_summary_generator(df_summary):
+def query_doris(sql: str, params=None) -> pd.DataFrame:
+    conn = pymysql.connect(**DORIS_CONFIG)
+    try:
+        df = pd.read_sql(sql, conn, params=params)
+        return df
+    finally:
+        conn.close()
+
+
+def get_max_trade_date(date_str: str = None) -> str:
+    if date_str is None:
+        date_str = datetime.now().strftime('%Y-%m-%d')
+
+    sql = """
+        SELECT c_max_trade_date 
+        FROM tytdata.tb_trade_calendar 
+        WHERE c_date = %s
     """
-    示例摘要生成器 - 硬编码数据，用于调试排版或LLM不可用时的兜底。
-    """
-    overall = (
-        "1、一月份保险资金在平台净申购量最大（69.99），其次为券商（59.80）、公募（19.97）；\n"
-        "2、一月份银行自营大幅净赎回（-75.08），信托期货（-24.81）、理财子（-22.54）也保持净赎回状态；\n"
-        "3、市场呈现明显的\"固收+化\"趋势，固收+类基金净申购最多（180.21），而纯债类基金大幅净赎回（-208.31）；\n"
-        "4、权益类基金整体净申购（50.78），交易较为活跃但规模明显低于固收+。"
-    )
+    df = query_doris(sql, params=[date_str])
 
-    institutions = {
-        '保险': (
-            "1、保险总体净申购规模较大（69.99），配置意愿强烈；\n"
-            "2、在权益类基金保持较大净申购态势（34.96），偏好大盘成长型（9.16）和中盘成长型（8.89）；\n"
-            "3、在固收+类基金保持净申购（28.23），重点配置相对收益型（15.64）；"
-        ),
-        '券商': (
-            "1、券商总体净申购规模较大（59.80），配置意愿强烈；\n"
-            "2、在权益类基金保持稳定净申购态势（12.96），偏好大盘成长型（4.63）和增强指数型（2.42）；\n"
-            "3、在固收+类基金加仓力度最大（75.02），重点配置相对收益型（55.56）；\n"
-            "4、对纯债类基金保持净赎回态势（-29.71）；"
-        ),
-        '信托期货': (
-            "1、信托期货总体净赎回（-24.81），主要来自纯债类基金的大幅赎回（-62.61）；\n"
-            "2、在固收+类基金保持净申购（37.39），配置力度较大；\n"
-            "3、权益类基金净申购规模较小（1.32）；"
-        ),
-        '公募': (
-            "1、公募总体净申购（19.97），以固收+类为主要配置方向；\n"
-            "2、固收+类基金净申购29.63，占总量比重最大；\n"
-            "3、纯债类基金净赎回（-8.55），权益类小幅净申购（0.47）；"
-        ),
-        '理财子公司': (
-            "1、理财子总体净赎回（-22.54），主要因纯债类大幅净赎回（-34.39）；\n"
-            "2、在固收+类基金保持净申购（9.69）；\n"
-            "3、权益类基金净申购规模较小（0.81）；"
-        ),
-        '银行自营': (
-            "1、银行自营大幅净赎回（-75.08），为所有机构中赎回量最大；\n"
-            "2、赎回集中在纯债类基金（-75.18），偏利率型赎回最多（-44.15）；\n"
-            "3、其他类型基金交易量极小；"
-        ),
-        '私募': (
-            "1、私募总体小幅净赎回（-1.89），交易量较小；\n"
-            "2、纯债类小幅净赎回（-2.75），在香港互认基金净申购（1.33）；"
-        ),
-        '银行资管': (
-            "1、银行资管总体小幅净赎回（-0.80），交易量较小；\n"
-            "2、纯债类小幅净赎回（-1.41），固收+类小幅净申购（0.62）；"
-        ),
-        '其他': (
-            "1、其他机构总体小幅净赎回（-0.27），交易量极小；"
-        ),
-    }
+    if df.empty:
+        raise ValueError(f"未找到 {date_str} 的交易日历数据")
 
-    return {
-        'overall': overall,
-        'institutions': institutions,
-    }
+    return df['c_max_trade_date'].iloc[0]
 
-
-# ── 主流程 ────────────────────────────────────────────
 
 def main():
+    # now = datetime.now()
+    now = datetime(2026, 2, 28, 16, 40, 0)
+    print(f"今天是{now}")
+
+    # 自动获取最新交易日作为today
+    trade_date = get_max_trade_date('2026-02-28')  # 返回如 '2026-02-27'
+    today = str(trade_date).replace('-', '')  # '20260227'
+    print(f"计算{today}的结果")
+    # 自动计算当月起止日期
+    first_day = now.replace(day=1)
+    last_day = now.replace(day=calendar.monthrange(now.year, now.month)[1])
+    START_DATE = first_day.strftime('%Y-%m-%d')
+    END_DATE = last_day.strftime('%Y-%m-%d')
+
+    # 自动生成年月标题，如 "2026年2月"
+    title_month = f"{now.year}年{now.month}月"
+
     # 配置参数
-    INPUT_FILE = r'./data/基金交易市场动态表-基金标签-分机构20260130.xlsx'
-    START_DATE = '2026-01-01'
-    END_DATE = '2026-01-31'
-    WATERMARK_TEXT = '平安基金MOM专用'
-    PROTECTION_PASSWORD = None  # 设为字符串即启用密码保护，如 'abc123'
+    # INPUT_FILE = f'/tmp/基金交易市场动态表-基金标签-分机构{today}.xlsx'
+    # from ttjj_common.ftp import ftp_download
+    # ftp_download(
+    #     f'/report/excel/dongtaiD/TY_TTJJ_ZHT/基金交易市场动态表-基金标签-分机构{today}.xlsx',
+    #     INPUT_FILE,
+    # )
+    INPUT_FILE = r'./data/基金交易市场动态表-基金标签-分机构20260226.xlsx'
+    WATERMARK_TEXT = '天天基金投研专用'
+    PROTECTION_PASSWORD = None
 
-    # 是否使用LLM生成摘要（False则使用硬编码示例）
-    USE_LLM_SUMMARY = True
+    # ── 摘要控制 ──────────────────────────────────
+    ADD_LLM_SUMMARY = True
 
-    # 中间文件和最终文件
-    report_file = r'./data/2026年1月基金申赎报告.xlsx'
-    final_file = r'./data/2026年1月基金申赎报告-终版.xlsx'
+    # 输出目录 & 文件
+    # output_directory = "dolphinscheduler/default/resources/jjy/clients/sub_redeem_report/output"
+    output_directory = r'./output'
+    os.makedirs(output_directory, exist_ok=True)
+
+    report_file = os.path.join(output_directory, f'{title_month}基金申赎报告.xlsx')
+    final_file = os.path.join(output_directory, f'{title_month}月度基金申赎报告.xlsx')
 
     # 选择摘要生成器
-    if USE_LLM_SUMMARY:
+    if ADD_LLM_SUMMARY is True:
         summary_gen = build_llm_summary_generator()
-        print('📝 使用LLM生成摘要')
+        print('使用LLM生成摘要')
     else:
-        summary_gen = example_summary_generator
-        print('📝 使用硬编码示例摘要')
+        summary_gen = None
+        print('跳过摘要生成')
 
-    # Step 1: 生成报告（含汇总表 + 摘要 + 趋势图）
+    # Step 1: 生成报告
     generate_monthly_report(
         input_file=INPUT_FILE,
         output_file=report_file,
@@ -117,7 +117,41 @@ def main():
         password=PROTECTION_PASSWORD,
     )
 
-    print(f'\n🎉 最终报告: {final_file}')
+    # # Step 3: 推送咚咚
+    # if final_file:
+    #     from ttjj_common.dongdong import send_file
+    #     send_file('g30306', final_file)
+    #
+    # # Step 4: 推送邮件
+    # from ttjj_common.email import connect_email_server
+    # import time
+    #
+    # time.sleep(2)
+    #
+    # sender = connect_email_server(timeout=120)
+    # receivers = [
+    #     "jijunye@eastmoney.com"
+    # ]
+    # subject = f"{Path(final_file).stem}"
+    # body = "请查收本期基金申赎月度报告，详见附件。"
+    #
+    # attachments = {}
+    # final_path = Path(final_file).resolve()
+    # if final_path.exists():
+    #     attachments[final_path.name] = final_path
+    #
+    # print(f"准备发送邮件至: {receivers}")
+    #
+    # for receiver in receivers:
+    #     sender.send(
+    #         receivers=[receiver],
+    #         subject=subject,
+    #         text=body,
+    #         attachments=attachments,
+    #     )
+    # print("邮件发送完成")
+    #
+    # print(f'\n 最终报告: {final_file}')
 
 
 if __name__ == '__main__':

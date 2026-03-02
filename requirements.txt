@@ -1,0 +1,12 @@
+--extra-index-url http://py.packages.yunwei/simple
+--trusted-host py.packages.yunwei
+
+ttjj_common==1.1.4
+pymysql==1.1.2
+pandas==2.3.3
+openpyxl==3.1.5
+dotenv==0.9.9
+openai==2.24.0
+Pillow==12.1.0
+redmail==0.6.0
+python-calamine==0.6.2

@@ -17,8 +17,8 @@ load_dotenv(_env_path)
 
 # ── 客户端配置 ────────────────────────────────────────
 _DEFAULT_API_KEY = os.getenv('LLM_API_KEY', 'VOplCUjdbDBjO1Zf4f2eE5CcBd244835Ad31D5F6Ab7699F9')
-_DEFAULT_BASE_URL = os.getenv('LLM_BASE_URL', 'https://dd-ai-api.eastmoney.com/v1')
-_DEFAULT_MODEL = os.getenv('LLM_MODEL', 'DeepSeek-R1')
+_DEFAULT_BASE_URL = os.getenv('LLM_BASE_URL', 'http://dd-ai-api.em/v1')
+_DEFAULT_MODEL = os.getenv('LLM_MODEL', 'DeepSeek-V3')
 
 
 def _get_client(api_key=None, base_url=None):

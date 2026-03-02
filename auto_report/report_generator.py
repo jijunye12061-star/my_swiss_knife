@@ -45,12 +45,12 @@ WRAP = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
 def read_institution_data(input_file):
     """读取所有机构sheet的数据（排除首尾sheet）"""
-    xl = pd.ExcelFile(input_file)
+    xl = pd.ExcelFile(input_file, engine='calamine')
     sheet_names = xl.sheet_names[1:-1]
 
     institution_data = {}
     for sheet in sheet_names:
-        df = pd.read_excel(input_file, sheet_name=sheet, engine='openpyxl')
+        df = pd.read_excel(input_file, sheet_name=sheet, engine='calamine')
         df = df[df['交易日期'].astype(str).str.contains(r'\d{4}/\d{2}/\d{2}')]
         df['交易日期'] = pd.to_datetime(df['交易日期'])
         institution_data[sheet] = df
